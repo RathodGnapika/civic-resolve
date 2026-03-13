@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Shield, FileText, Search, LayoutDashboard, LogIn, LogOut, UserPlus } from "lucide-react";
+import { Shield, FileText, Search, LayoutDashboard, LogIn, LogOut, UserPlus, Map, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
@@ -10,9 +10,12 @@ export default function Navbar() {
 
   const navItems = [
     { to: "/", label: "Home", icon: Shield, show: true },
-    { to: "/submit", label: "Submit Complaint", icon: FileText, show: true },
+    { to: "/submit", label: "Submit Complaint", icon: FileText, show: !!user },
     { to: "/track", label: "Track Status", icon: Search, show: true },
+    { to: "/heatmap", label: "Heatmap", icon: Map, show: true },
+    { to: "/admin", label: "Admin Login", icon: LogIn, show: true },
     { to: "/dashboard", label: "Admin Dashboard", icon: LayoutDashboard, show: isAdmin },
+    { to: "/feedback", label: "Feedback", icon: Star, show: true },
   ];
 
   const handleSignOut = async () => {

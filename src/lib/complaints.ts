@@ -1,112 +1,75 @@
-export type Department = "Sanitation" | "Electricity" | "Public Works" | "Water Dept" | "General";
-export type Priority = "High" | "Medium" | "Low";
-export type Status = "Pending" | "In Progress" | "Resolved";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+import { supabase } from "@/integrations/supabase/client";
 
-export interface Complaint {
-  id: number;
+export type Complaint = {
+  id: string;
   name: string;
   location: string;
-  text: string;
-  department: Department;
-  priority: Priority;
-  status: Status;
-  timestamp: string;
-  imageUrl?: string;
-}
-
-const DEPARTMENT_KEYWORDS: Record<Department, string[]> = {
-  Sanitation: ["garbage", "waste", "trash", "dump", "litter", "sewage", "dirty", "smell", "stink", "rubbish", "debris", "cleaning", "sweeping", "sanitation"],
-  Electricity: ["light", "streetlight", "power", "electric", "wire", "pole", "outage", "blackout", "voltage", "transformer", "bulb", "lamp"],
-  "Public Works": ["road", "pothole", "bridge", "crack", "pavement", "footpath", "sidewalk", "construction", "drain", "manhole", "speed bump", "sign"],
-  "Water Dept": ["water", "pipe", "leakage", "leak", "supply", "tap", "flood", "drainage", "waterlogging", "pipeline", "tank", "borewell"],
-  General: [],
+  complaint_text: string;
+  department: string;
+  priority: string;
+  status: string;
+  created_at?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
-const PRIORITY_KEYWORDS: Record<Priority, string[]> = {
-  High: ["accident", "danger", "emergency", "urgent", "collapse", "fire", "flood", "death", "injury", "risk", "hazard", "critical", "immediate", "broken bridge", "open manhole"],
-  Medium: ["leak", "overflow", "damage", "broken", "not working", "complaint", "problem", "issue", "faulty"],
-  Low: ["minor", "cosmetic", "paint", "dim", "slow", "suggestion", "request", "improvement"],
-};
-
-export function classifyDepartment(text: string): Department {
-  const lower = text.toLowerCase();
-  let bestDept: Department = "General";
-  let bestScore = 0;
-
-  for (const [dept, keywords] of Object.entries(DEPARTMENT_KEYWORDS) as [Department, string[]][]) {
-    if (dept === "General") continue;
-    const score = keywords.filter(kw => lower.includes(kw)).length;
-    if (score > bestScore) {
-      bestScore = score;
-      bestDept = dept;
-    }
-  }
-  return bestDept;
+function classifyDepartment(text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes("garbage") || t.includes("waste") || t.includes("trash")) return "Sanitation";
+  if (t.includes("light") || t.includes("electricity") || t.includes("power")) return "Electricity";
+  if (t.includes("pothole") || t.includes("road") || t.includes("street")) return "Public Works";
+  if (t.includes("water") || t.includes("pipe") || t.includes("drain")) return "Water Dept";
+  return "General";
 }
 
-export function detectPriority(text: string): Priority {
-  const lower = text.toLowerCase();
-  for (const priority of ["High", "Medium", "Low"] as Priority[]) {
-    if (PRIORITY_KEYWORDS[priority].some(kw => lower.includes(kw))) {
-      return priority;
-    }
-  }
-  return "Medium";
+function detectPriority(text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes("accident") || t.includes("danger") || t.includes("urgent") || t.includes("emergency")) return "high";
+  if (t.includes("leakage") || t.includes("broken") || t.includes("damage")) return "medium";
+  return "low";
 }
 
-const STORAGE_KEY = "civicai_complaints";
-let nextId = 100;
+export async function submitComplaint(
+  name: string,
+  location: string,
+  text: string
+): Promise<Complaint> {
+  const department = classifyDepartment(text);
+  const priority = detectPriority(text);
 
-function loadComplaints(): Complaint[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const complaints = JSON.parse(data) as Complaint[];
-      if (complaints.length > 0) {
-        nextId = Math.max(...complaints.map(c => c.id)) + 1;
-      }
-      return complaints;
-    }
-  } catch {}
-  return [];
+  console.log("Inserting:", { name, location, complaint_text: text, department, priority });
+
+  const { data, error } = await (supabase as any)
+    .from("complaints")
+    .insert([{ name, location, complaint_text: text, department, priority, status: "pending" }])
+    .select()
+    .single();
+
+  console.log("Result - data:", data, "error:", error);
+
+  if (error) throw new Error(JSON.stringify(error));
+  return data as Complaint;
 }
 
-function saveComplaints(complaints: Complaint[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(complaints));
+export async function getComplaints(): Promise<Complaint[]> {
+  const { data, error } = await (supabase as any)
+    .from("complaints")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data as Complaint[];
 }
 
-export function getAllComplaints(): Complaint[] {
-  return loadComplaints();
-}
+export async function getComplaintById(id: string): Promise<Complaint | null> {
+  const { data, error } = await (supabase as any)
+    .from("complaints")
+    .select("*")
+    .eq("id", id)
+    .single();
 
-export function getComplaintById(id: number): Complaint | undefined {
-  return loadComplaints().find(c => c.id === id);
-}
-
-export function submitComplaint(name: string, location: string, text: string, imageUrl?: string): Complaint {
-  const complaints = loadComplaints();
-  const complaint: Complaint = {
-    id: nextId++,
-    name,
-    location,
-    text,
-    department: classifyDepartment(text),
-    priority: detectPriority(text),
-    status: "Pending",
-    timestamp: new Date().toISOString(),
-    imageUrl,
-  };
-  complaints.push(complaint);
-  saveComplaints(complaints);
-  return complaint;
-}
-
-export function updateComplaintStatus(id: number, status: Status): Complaint | undefined {
-  const complaints = loadComplaints();
-  const complaint = complaints.find(c => c.id === id);
-  if (complaint) {
-    complaint.status = status;
-    saveComplaints(complaints);
-  }
-  return complaint;
+  if (error) return null;
+  return data as Complaint;
 }

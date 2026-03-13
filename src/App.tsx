@@ -1,3 +1,7 @@
+import Feedback from "./pages/Feedback";
+import ChatBot from "./components/ChatBot";
+import Heatmap from "./pages/Heatmap";
+import './App.css';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,6 +12,7 @@ import Navbar from "@/components/Navbar";
 import Index from "./pages/Index";
 import SubmitComplaint from "./pages/SubmitComplaint";
 import TrackComplaint from "./pages/TrackComplaint";
+import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -32,9 +37,14 @@ const AppRoutes = () => (
       <Route path="/track" element={<TrackComplaint />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/heatmap" element={<Heatmap />} />
+      <Route path="/admin" element={<AdminLogin />} />
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+      <Route path="/feedback" element={<Feedback />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    {/* ChatBot floats on every page */}
+    <ChatBot />
   </>
 );
 
