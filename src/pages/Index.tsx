@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FileText, Brain, BarChart3, Search } from "lucide-react";
+import { FileText, Brain, BarChart3, Search, History } from "lucide-react";
 
 const steps = [
   { title: "User Reports Issue", icon: FileText },
@@ -82,28 +82,49 @@ export default function Index() {
           </p>
 
           {/* BUTTONS */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 15 }}>
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 15, flexWrap: "wrap" }}>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link to="/submit" style={{
                 background: "#2563eb",
                 color: "white",
                 padding: "14px 28px",
                 borderRadius: 8,
-                textDecoration: "none"
+                textDecoration: "none",
+                display: "inline-block"
               }}>
                 Report Issue →
               </Link>
             </motion.div>
 
-            <motion.div whileHover={{ scale: 1.1 }}>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link to="/track" style={{
                 border: "1px solid #cbd5e1",
                 padding: "14px 28px",
                 borderRadius: 8,
                 textDecoration: "none",
-                background: "white"
+                background: "white",
+                color: "#1e293b",
+                display: "inline-block"
               }}>
                 Track Complaint
+              </Link>
+            </motion.div>
+
+            {/* NEW HISTORY BUTTON */}
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link to="/history" style={{
+                border: "1px solid #cbd5e1",
+                padding: "14px 28px",
+                borderRadius: 8,
+                textDecoration: "none",
+                background: "white",
+                color: "#1e293b",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <History size={18} />
+                My History
               </Link>
             </motion.div>
           </div>
@@ -161,7 +182,6 @@ export default function Index() {
         </section>
 
       </div>
-
     </div>
   );
 }
