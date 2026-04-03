@@ -1,3 +1,4 @@
+import ComplaintHistory from "./pages/ComplaintHistory";
 import Feedback from "./pages/Feedback";
 import ChatBot from "./components/ChatBot";
 import Heatmap from "./pages/Heatmap";
@@ -65,6 +66,7 @@ const AppRoutes = () => (
       <Route path="/register" element={<Register />} />
       <Route path="/heatmap" element={<Heatmap />} />
       <Route path="/admin" element={<AdminLogin />} />
+      <Route path="/history" element={<ComplaintHistory />} /> 
 
       {/* 🔐 PROTECTED ADMIN ROUTE */}
       <Route
