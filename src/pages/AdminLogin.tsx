@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +9,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false); // 🔥 NEW
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,12 +41,58 @@ export default function AdminLogin() {
       return;
     }
 
-    navigate("/dashboard");
+    // 🔥 SHOW TRANSITION SCREEN
+    setSuccess(true);
+
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 1200);
   };
+
+  // 🔥 SUCCESS TRANSITION SCREEN
+  if (success) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        background: "#0f172a",
+        color: "white",
+        flexDirection: "column"
+      }}>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+        >
+          <div style={{
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            border: "4px solid #2563eb",
+            borderTopColor: "transparent",
+            animation: "spin 1s linear infinite",
+            marginBottom: 20
+          }} />
+
+          <p style={{ fontSize: "1rem", color: "#94a3b8" }}>
+            Verifying admin access...
+          </p>
+        </motion.div>
+
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="card p-8 w-full max-w-md animate-fade-in">
+
         <div className="flex justify-center mb-6">
           <div style={{
             width: 64, height: 64, borderRadius: 16,
@@ -52,13 +100,14 @@ export default function AdminLogin() {
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 0 30px rgba(14,165,233,0.4)"
           }}>
-            <svg width="28" height="28" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-            </svg>
+            🔐
           </div>
         </div>
 
-        <h2 className="font-display text-2xl font-bold text-center mb-1">Admin Portal</h2>
+        <h2 className="font-display text-2xl font-bold text-center mb-1">
+          Admin Portal
+        </h2>
+
         <p className="text-center text-sm mb-8" style={{color: "#64748b"}}>
           Sign in with your admin credentials
         </p>
@@ -75,6 +124,7 @@ export default function AdminLogin() {
         )}
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
+
           <div>
             <label style={{display:"block", marginBottom:6}}>Email</label>
             <input
@@ -86,6 +136,7 @@ export default function AdminLogin() {
               style={{width:"100%", padding:"10px 14px"}}
             />
           </div>
+
           <div>
             <label style={{display:"block", marginBottom:6}}>Password</label>
             <input
@@ -97,14 +148,22 @@ export default function AdminLogin() {
               style={{width:"100%", padding:"10px 14px"}}
             />
           </div>
+
           <button type="submit" disabled={loading} style={{marginTop:8}}>
             {loading ? "Signing in..." : "Sign In →"}
           </button>
+
         </form>
 
-        <p style={{textAlign:"center", fontSize:"0.78rem", color:"#334155", marginTop:20}}>
+        <p style={{
+          textAlign:"center",
+          fontSize:"0.78rem",
+          color:"#334155",
+          marginTop:20
+        }}>
           Login with: rathodgnapika2006@gmail.com
         </p>
+
       </div>
     </div>
   );
