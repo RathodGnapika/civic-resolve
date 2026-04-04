@@ -1,191 +1,169 @@
-import { motion } from "framer-motion";
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { submitComplaint, type Complaint } from "@/lib/complaints";
-import { CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { submitComplaint } from "@/lib/complaints";
+
+function AuthGuard({ onLogin }: { onLogin: () => void }) {
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 gap-4">
+      <div className="text-5xl mb-2">🔒</div>
+      <h2 className="text-2xl font-bold text-gray-800">Login required</h2>
+      <p className="text-gray-500 max-w-sm">
+        You must be logged in to submit a complaint so we can track it for you.
+      </p>
+      <button
+        onClick={onLogin}
+        className="mt-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+      >
+        Log in / Register
+      </button>
+    </div>
+  );
+}
 
 export default function SubmitComplaint() {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState("");
 
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [text, setText] = useState("");
-  const [submitted, setSubmitted] = useState<Complaint | null>(null);
+
+  const [submitted, setSubmitted] = useState(false);
+  const [trackingId, setTrackingId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !location || !text) return;
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session);
+      setUserEmail(data.session?.user?.email ?? "");
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setIsLoggedIn(!!session);
+      setUserEmail(session?.user?.email ?? "");
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
-    setLoading(true);
+  if (isLoggedIn === null) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-gray-400">
+        Checking session…
+      </div>
+    );
+  }
 
-    try {
-      await new Promise((res) => setTimeout(res, 1500));
-      const complaint = await submitComplaint(name, location, text);
-      setSubmitted(complaint);
-    } catch (err) {
-      console.error(err);
+  if (!isLoggedIn) {
+    return <AuthGuard onLogin={() => navigate("/login")} />;
+  }
+
+  async function handleSubmit() {
+    if (!name.trim() || !location.trim() || !text.trim()) {
+      setError("Please fill in all fields before submitting.");
+      return;
     }
+    setLoading(true);
+    setError("");
+    try {
+      const complaint = await submitComplaint(name, location, text);
+      setTrackingId(complaint.tracking_id);
+      setSubmitted(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    setLoading(false);
-  };
-
-  // ✅ SUCCESS
   if (submitted) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          style={{
-            background: "white",
-            padding: 40,
-            borderRadius: 10,
-            textAlign: "center",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.1)"
-          }}
-        >
-          <CheckCircle size={40} color="#16a34a" />
-          <h2 style={{ marginTop: 10 }}>Complaint Registered</h2>
-          <p style={{ color: "#64748b" }}>Reference ID: {submitted.id}</p>
-
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 gap-4">
+        <div className="text-5xl mb-2">✅</div>
+        <h2 className="text-2xl font-bold text-gray-800">Complaint submitted!</h2>
+        <p className="text-gray-500 max-w-sm">
+          Your complaint has been registered. Save your tracking ID below — you'll need it to check status.
+        </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-6 py-4 my-2">
+          <p className="text-xs text-blue-500 uppercase font-medium mb-1">Your Tracking ID</p>
+          <p className="text-2xl font-bold text-blue-700 font-mono">{trackingId}</p>
+        </div>
+        <div className="flex gap-3 mt-2">
           <button
-            onClick={() => navigate("/track")}
-            style={{
-              marginTop: 20,
-              padding: "10px 20px",
-              background: "#1e3a8a",
-              color: "white",
-              borderRadius: 6
-            }}
+            onClick={() => navigate("/complaints")}
+            className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
           >
-            Track Status
+            View my complaints
           </button>
-        </motion.div>
+          <button
+            onClick={() => { setSubmitted(false); setName(""); setLocation(""); setText(""); }}
+            className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+          >
+            Submit another
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      background: "#f1f5f9"
-    }}>
+    <div className="container mx-auto max-w-lg p-6">
+      <h1 className="text-3xl font-bold mb-1">Submit a Complaint</h1>
+      <p className="text-gray-500 text-sm mb-6">
+        Logged in as <strong>{userEmail}</strong>
+      </p>
 
-      {/* LEFT PANEL (PROFESSIONAL FEEL) */}
-      <div style={{
-        flex: 1,
-        background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-        color: "white",
-        padding: 60,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center"
-      }}>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: "700" }}>
-          CivicAI Complaint System
-        </h1>
-
-        <p style={{ marginTop: 15, opacity: 0.9 }}>
-          Submit civic issues and allow automated prioritization
-          through AI-driven governance workflows.
-        </p>
-
-        <div style={{ marginTop: 40, lineHeight: "1.8" }}>
-          <p>✔ Secure & Verified Submission</p>
-          <p>✔ AI-Based Categorization</p>
-          <p>✔ Faster Resolution Tracking</p>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setError(""); }}
+            placeholder="e.g. Rahul Sharma"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
-      </div>
 
-      {/* RIGHT PANEL (FORM) */}
-      <div style={{
-        flex: 1,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 40
-      }}>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => { setLocation(e.target.value); setError(""); }}
+            placeholder="e.g. MG Road, Block 4, Bengaluru"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            width: "100%",
-            maxWidth: 420,
-            background: "white",
-            padding: 30,
-            borderRadius: 10,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)"
-          }}
-        >
-
-          <h2 style={{ fontSize: "1.4rem", fontWeight: 600 }}>
-            Submit Complaint
-          </h2>
-
-          <p style={{ color: "#64748b", marginBottom: 20 }}>
-            Provide details of the issue
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Describe the issue</label>
+          <textarea
+            value={text}
+            onChange={(e) => { setText(e.target.value); setError(""); }}
+            rows={4}
+            placeholder="Describe the problem in detail. We'll automatically classify the department and priority."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Department and priority are auto-detected from your description.
           </p>
+        </div>
 
-          {/* AI STATUS */}
-          {loading && (
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ repeat: Infinity, duration: 1.2 }}
-              style={{
-                marginBottom: 15,
-                fontSize: "0.9rem",
-                color: "#2563eb"
-              }}
-            >
-              Processing request...
-            </motion.div>
-          )}
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-            <Input
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-
-            <Input
-              placeholder="Location / Area"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-
-            <Textarea
-              placeholder="Describe the issue in detail"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              disabled={loading}
-              style={{
-                marginTop: 10,
-                padding: "12px",
-                background: "#1e3a8a",
-                color: "white",
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Submit Request
-            </motion.button>
-
-          </form>
-
-        </motion.div>
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+        >
+          {loading ? "Submitting…" : "Submit Complaint"}
+        </button>
       </div>
     </div>
   );

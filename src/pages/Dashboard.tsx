@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useMemo, useEffect } from "react";
-import { getComplaints, type Complaint } from "@/lib/complaints";
+import { getComplaints, updateComplaintStatus, type Complaint } from "@/lib/complaints";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Clock, CheckCircle, FileText, RefreshCw, TrendingUp, Filter } from "lucide-react";
 
@@ -92,6 +92,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
   const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const fetchComplaints = async () => {
     const data = await getComplaints();
@@ -104,6 +105,19 @@ export default function Dashboard() {
   };
 
   useEffect(() => { fetchComplaints(); }, []);
+
+  // Save status change to Supabase immediately
+  async function handleStatusChange(id: string, newStatus: string) {
+    setStatuses(prev => ({ ...prev, [id]: newStatus }));
+    setSavingId(id);
+    try {
+      await updateComplaintStatus(id, newStatus);
+    } catch (e) {
+      console.error("Failed to update status:", e);
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   const stats = useMemo(() => ({
     total: complaints.length,
@@ -197,6 +211,7 @@ export default function Dashboard() {
             }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+            LIVE
           </motion.div>
 
           <motion.button
@@ -296,9 +311,7 @@ export default function Dashboard() {
         style={{ background: "white", borderRadius: 14, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", overflow: "hidden" }}
       >
         {/* Table header with filter */}
-        <div style={{
-          padding: "18px 22px", borderBottom: "1px solid #f1f5f9"
-        }}>
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid #f1f5f9" }}>
           {/* Title row */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -336,16 +349,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Column headers */}
+        {/* Column headers — added TRACKING ID column */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "60px 140px 1fr 160px 130px 100px 160px 80px",
+          gridTemplateColumns: "110px 130px 1fr 150px 120px 90px 160px 70px",
           padding: "10px 22px",
           background: "#f8fafc",
           borderBottom: "1px solid #f1f5f9",
           fontSize: "0.7rem", fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em"
         }}>
-          <span>#</span>
+          <span>TRACKING ID</span>
           <span>NAME</span>
           <span>ISSUE</span>
           <span>LOCATION</span>
@@ -365,7 +378,7 @@ export default function Dashboard() {
             const priority = c.priority || "low";
             const priCfg = priorityConfig[priority] || priorityConfig.low;
             const currentStatus = statuses[c.id] || c.status || "pending";
-            const stCfg = statusConfig[currentStatus] || statusConfig.pending;
+            const isSaving = savingId === c.id;
 
             return (
               <motion.div
@@ -376,16 +389,23 @@ export default function Dashboard() {
                 whileHover={{ background: "#f8fafc" }}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "60px 140px 1fr 160px 130px 100px 160px 80px",
+                  gridTemplateColumns: "110px 130px 1fr 150px 120px 90px 160px 70px",
                   padding: "14px 22px",
                   borderBottom: "1px solid #f1f5f9",
                   alignItems: "center",
-                  transition: "background 0.15s"
+                  transition: "background 0.15s",
+                  opacity: isSaving ? 0.6 : 1,
                 }}
               >
-                {/* ID */}
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontFamily: "monospace" }}>
-                  {String(c.id).slice(0, 6)}
+                {/* Tracking ID — real value from DB */}
+                <span style={{
+                  fontSize: "0.78rem", fontWeight: 700,
+                  color: "#2563eb", fontFamily: "monospace",
+                  background: "#dbeafe", padding: "3px 8px",
+                  borderRadius: 6, display: "inline-block",
+                  letterSpacing: "0.03em"
+                }}>
+                  {c.tracking_id || "—"}
                 </span>
 
                 {/* Name */}
@@ -423,10 +443,10 @@ export default function Dashboard() {
                   </span>
                 </span>
 
-                {/* Status dropdown */}
+                {/* Status dropdown — now saves to Supabase */}
                 <StatusDropdown
                   value={currentStatus}
-                  onChange={(val) => setStatuses(prev => ({ ...prev, [c.id]: val }))}
+                  onChange={(val) => handleStatusChange(c.id, val)}
                 />
 
                 {/* Date */}
